@@ -1,58 +1,68 @@
-import { NextResponse } from 'next/server';
+import NextAuth from 'next-auth';
 import { PrismaClient } from '@prisma/client';
+import { PrismaAdapter } from '@next-auth/prisma-adapter';
+import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcrypt';
 
-// Use a single instance of PrismaClient across your application
+// Configuración de Prisma (optimizada para Vercel)
 const prisma = new PrismaClient();
 
-export async function POST(request) {
-  try {
-    const { email, password } = await request.json();
-
-    // Validate input
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
-    }
-
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      );
-    }
-
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      );
-    }
-
-    // Return success response
-    return NextResponse.json(
-      { 
-        message: 'Login successful', 
-        userId: user.id,
-        email: user.email
+// Configuración completa de NextAuth
+const authOptions = {
+  adapter: PrismaAdapter(prisma),
+  providers: [
+    CredentialsProvider({
+      name: 'Credentials',
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
       },
-      { status: 200 }
-    );
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Email y contraseña son requeridos');
+        }
 
-  } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email }
+        });
+
+        if (!user || !user.password) {
+          throw new Error('Usuario no encontrado');
+        }
+
+        const isValid = await bcrypt.compare(credentials.password, user.password);
+        if (!isValid) {
+          throw new Error('Contraseña incorrecta');
+        }
+
+        return { id: user.id, email: user.email };
+      }
+    })
+  ],
+  session: {
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 días
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      session.user.id = token.id;
+      return session;
+    }
+  },
+  debug: process.env.NODE_ENV === 'development',
+  pages: {
+    signIn: '/login',
+    error: '/auth/error',
   }
-}
+};
+
+const handler = NextAuth(authOptions);
+
+export { handler as GET, handler as POST };
