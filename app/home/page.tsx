@@ -12,6 +12,7 @@ import {
   DollarSignIcon,
   FuelIcon as GasPumpIcon,
   PercentIcon,
+  Calculator
 } from "lucide-react"
 import Link from "next/link"
 
@@ -67,6 +68,18 @@ export default function HomePage() {
           <Button className="gap-2 w-full sm:w-auto">
             <PlusCircleIcon className="h-4 w-4" />
             Nuevo Registro
+          </Button>
+        </Link>
+        <Link href="/calculadora" className="w-full sm:w-auto">
+          <Button className="gap-2 w-full sm:w-auto">
+            <Calculator className="h-4 w-4" />
+            Calculadora
+          </Button>
+        </Link>
+        <Link href="/cobro" className="w-full sm:w-auto">
+          <Button className="gap-2 w-full sm:w-auto">
+            <Calculator className="h-4 w-4" />
+            Carrera
           </Button>
         </Link>
       </div>
