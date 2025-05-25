@@ -14,6 +14,7 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   savings      Savings[]
+  taximetro    Taximetro[]
 }
 
 model Savings {
@@ -23,6 +24,14 @@ model Savings {
   gastoGaso      Float   
   gastoComision  Float   
   IngresoNeto    Float
+  usuario        User      @relation(fields: [userId], references: [id])
+  userId         String    @db.ObjectId
+}
+
+model Taximetro {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  kmrecord       Float
+  fecha          DateTime  @default(now())
   usuario        User      @relation(fields: [userId], references: [id])
   userId         String    @db.ObjectId
 }
