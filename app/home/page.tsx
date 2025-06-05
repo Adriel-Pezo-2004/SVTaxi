@@ -325,7 +325,6 @@ export default function HomePage() {
                           month: "long",
                           day: "numeric",
                         })}
-                        <span className="text-xs text-muted-foreground ml-2">ID: {taximetro.id}</span>
                       </span>
                     </div>
                     {editId === taximetro.id ? (
