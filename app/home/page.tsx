@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   CarTaxiFrontIcon as TaxiIcon,
   PlusCircleIcon,
@@ -12,7 +14,11 @@ import {
   DollarSignIcon,
   FuelIcon as GasPumpIcon,
   PercentIcon,
-  Calculator
+  Calculator,
+  PencilIcon,
+  CheckCircleIcon,
+  XIcon,
+  Loader2Icon
 } from "lucide-react"
 import Link from "next/link"
 
@@ -41,7 +47,32 @@ export default function HomePage() {
     kilometers: 0,
     earnings: 0
   });
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editKm, setEditKm] = useState<string>("")
+  const [editError, setEditError] = useState("")
+  const [editLoading, setEditLoading] = useState(false)
   const router = useRouter()
+
+  const handleDeleteIngreso = async (id: string) => {
+    try {
+      const response = await fetch(`/api/ingresos/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+      if (response.ok) {
+        const updatedSavings = savings.filter(s => s.id !== id)
+        setSavings(updatedSavings)
+        const totalKm = taximetroRecords.reduce((sum, r) => sum + Number(r.kmrecord), 0)
+        const totalEarnings = updatedSavings.reduce((sum, s) => sum + Number(s.IngresoNeto), 0)
+        setTotals({
+          kilometers: totalKm,
+          earnings: totalEarnings
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting record:", error)
+    }
+  }
 
   useEffect(() => {
     fetch("/api/home", { credentials: "include" })
@@ -61,9 +92,56 @@ export default function HomePage() {
       })
   }, [router])
 
-  
-  const totalEarnings = savings.reduce((sum, saving) => sum + saving.IngresoNeto, 0)
-  const totalKilometers = taximetroRecords.reduce((sum, record) => sum + record.kmrecord, 0);
+  const handleEditClick = (record: TaximetroRecord) => {
+    setEditId(record.id)
+    setEditKm(record.kmrecord.toString())
+    setEditError("")
+  }
+
+  const handleEditCancel = () => {
+    setEditId(null)
+    setEditKm("")
+    setEditError("")
+  }
+
+  const handleEditSave = async () => {
+    setEditError("")
+    const kmValue = parseFloat(editKm)
+    if (isNaN(kmValue) || kmValue <= 0) {
+      setEditError("Por favor ingresa un valor numérico válido mayor a 0")
+      return
+    }
+    setEditLoading(true)
+    try {
+      const response = await fetch(`/api/taximetro/${editId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ kmrecord: kmValue }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        const updatedTaximetroRecords = taximetroRecords.map((rec) =>
+          rec.id === editId ? { ...rec, kmrecord: kmValue } : rec
+        )
+        setTaximetroRecords(updatedTaximetroRecords)
+        const totalKm = updatedTaximetroRecords.reduce((sum, r) => sum + Number(r.kmrecord), 0)
+        const totalEarnings = savings.reduce((sum, s) => sum + Number(s.IngresoNeto), 0)
+        setTotals({
+          kilometers: totalKm,
+          earnings: totalEarnings
+        })
+        setEditId(null)
+        setEditKm("")
+      } else {
+        setEditError(data.error || "Error al actualizar. Intenta de nuevo.")
+      }
+    } catch {
+      setEditError("Error de red. Intenta de nuevo.")
+    } finally {
+      setEditLoading(false)
+    }
+  }
 
   return (
     <div className="container py-6 sm:py-10 max-w-4xl mx-auto px-4 sm:px-6">
@@ -73,12 +151,11 @@ export default function HomePage() {
           <TaxiIcon className="h-8 w-8 text-primary" />
           <h1 className="text-2xl sm:text-3xl font-bold">TaxiTracker</h1>
           <Link href="/logout" className="block">
-              <Button variant="outline" className="w-full mt-2">
-                Cierra Sesión
-              </Button>
-            </Link>
+            <Button variant="outline" className="w-full mt-2">
+              Cierra Sesión
+            </Button>
+          </Link>
         </div>
-        
         <Link href="/ingresos/registrar" className="w-full sm:w-auto">
           <Button className="gap-2 w-full sm:w-auto">
             <PlusCircleIcon className="h-4 w-4" />
@@ -179,9 +256,24 @@ export default function HomePage() {
                         </span>
                       </div>
                     </div>
-                    <span className="font-bold text-base sm:text-lg text-primary">
-                      S/{Number(saving.IngresoNeto).toFixed(2)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-base sm:text-lg text-primary">
+                        S/{Number(saving.IngresoNeto).toFixed(2)}
+                      </span>
+                      <Link href={`/ingresos/editar/${saving.id}`}>
+                        <Button size="icon" variant="ghost" aria-label="Editar">
+                          <PencilIcon className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleDeleteIngreso(saving.id)}
+                        aria-label="Eliminar"
+                      >
+                        <XIcon className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {savings.length === 0 && (
@@ -233,11 +325,59 @@ export default function HomePage() {
                           month: "long",
                           day: "numeric",
                         })}
+                        <span className="text-xs text-muted-foreground ml-2">ID: {taximetro.id}</span>
                       </span>
                     </div>
-                    <span className="font-bold text-base sm:text-lg text-primary">
-                      {Number(taximetro.kmrecord).toFixed(1)} km
-                    </span>
+                    {editId === taximetro.id ? (
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+                        <Label htmlFor="editKm" className="sr-only">Kilómetros</Label>
+                        <Input
+                          id="editKm"
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={editKm}
+                          onChange={e => setEditKm(e.target.value)}
+                          className="w-24"
+                          disabled={editLoading}
+                        />
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={handleEditSave}
+                          disabled={editLoading}
+                          aria-label="Guardar"
+                        >
+                          {editLoading ? <Loader2Icon className="h-4 w-4 animate-spin" /> : <CheckCircleIcon className="h-4 w-4 text-green-600" />}
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={handleEditCancel}
+                          disabled={editLoading}
+                          aria-label="Cancelar"
+                        >
+                          <XIcon className="h-4 w-4 text-destructive" />
+                        </Button>
+                        {editError && (
+                          <span className="text-xs text-destructive ml-2">{editError}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-base sm:text-lg text-primary">
+                          {Number(taximetro.kmrecord).toFixed(1)} km
+                        </span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleEditClick(taximetro)}
+                          aria-label="Editar"
+                        >
+                          <PencilIcon className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {taximetroRecords.length === 0 && (
