@@ -53,6 +53,27 @@ export default function HomePage() {
   const [editLoading, setEditLoading] = useState(false)
   const router = useRouter()
 
+  const handleDeleteTaximetro = async (id: string) => {
+    try {
+      const response = await fetch(`/api/taximetro/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+      if (response.ok) {
+        const updatedTaximetroRecords = taximetroRecords.filter(t => t.id !== id)
+        setTaximetroRecords(updatedTaximetroRecords)
+        const totalKm = updatedTaximetroRecords.reduce((sum, r) => sum + Number(r.kmrecord), 0)
+        const totalEarnings = savings.reduce((sum, s) => sum + Number(s.IngresoNeto), 0)
+        setTotals({
+          kilometers: totalKm,
+          earnings: totalEarnings
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting taximetro record:", error)
+    }
+  }
+
   const handleDeleteIngreso = async (id: string) => {
     try {
       const response = await fetch(`/api/ingresos/${id}`, {
@@ -374,6 +395,14 @@ export default function HomePage() {
                           aria-label="Editar"
                         >
                           <PencilIcon className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleDeleteTaximetro(taximetro.id)}
+                          aria-label="Eliminar"
+                        >
+                          <XIcon className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     )}

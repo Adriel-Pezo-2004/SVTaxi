@@ -5,7 +5,6 @@ const prisma = new PrismaClient();
 
 export async function GET(request: Request) {
   try {
-    // Obtener userId de la cookie
     const cookie = request.headers.get('cookie');
     const userId = cookie
       ?.split('; ')
@@ -16,7 +15,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const records = await prisma.taximetro.findMany({ // ← Nombre exacto del modelo
+    const records = await prisma.taximetro.findMany({
       where: { userId },
       orderBy: { fecha: 'desc' },
       include: {
@@ -40,7 +39,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { kmrecord } = await request.json();
+    const { kmrecord, fecha } = await request.json();
 
     const cookie = request.headers.get('cookie');
     const userId = cookie
@@ -52,9 +51,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const newRecord = await prisma.taximetro.create({ // ← Nombre exacto del modelo
+    // Convierte la fecha recibida (YYYY-MM-DD) a Date
+    const fechaDate = fecha ? new Date(fecha) : new Date();
+
+    const newRecord = await prisma.taximetro.create({
       data: {
         kmrecord: Number(kmrecord),
+        fecha: fechaDate,
         userId
       }
     });

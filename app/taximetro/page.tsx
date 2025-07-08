@@ -44,7 +44,8 @@ const RegistrarTaximetroPage = () => {
         headers: { "Content-Type": "application/json" },
         credentials: 'include',
         body: JSON.stringify({
-          kmrecord: kmValue
+          kmrecord: kmValue,
+          fecha // ENVÍA LA FECHA TAL CUAL LA SELECCIONA EL USUARIO (YYYY-MM-DD)
         }),
       })
 
@@ -53,6 +54,7 @@ const RegistrarTaximetroPage = () => {
       if (response.ok) {
         setSuccess("Registro de kilómetros guardado correctamente.")
         setKmrecord("")
+        setFecha(new Date().toISOString().slice(0, 10))
         setTimeout(() => router.push("/home"), 1500)
       } else {
         setError(data.error || "Error al registrar. Intenta de nuevo.")
@@ -118,7 +120,7 @@ const RegistrarTaximetroPage = () => {
                 type="date"
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
-                disabled
+                required
                 className="focus-visible:ring-primary"
               />
             </div>
